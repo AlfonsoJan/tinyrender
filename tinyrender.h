@@ -20,15 +20,16 @@ typedef struct {
 typedef struct {
     FILE *f;
     TinyRenderOption opt;
+    TinyRenderPixels *pixels;
     uint8_t *y_plane;
     uint8_t *u_plane;
     uint8_t *v_plane;
 } TinyRenderWriter;
 
-int tinyrender_start(TinyRenderOption opt, TinyRenderWriter *w, uint8_t *y, uint8_t *u, uint8_t *v);
-int tinyrender_frame(TinyRenderWriter *w, const TinyRenderPixels *pixels);
+int tinyrender_start(TinyRenderOption opt, TinyRenderWriter *w, TinyRenderPixels *pixels, uint8_t *y, uint8_t *u, uint8_t *v);
+int tinyrender_frame(TinyRenderWriter *w);
 void tinyrender_end(TinyRenderWriter *w);
 
-void tinyrender_clear_background(TinyRenderPixels *pixels, TinyRenderWriter writer, TinyRenderColor color);
+void tinyrender_clear_background(TinyRenderWriter *writer, const TinyRenderColor color);
 
 #endif // TINYRENDER_H_

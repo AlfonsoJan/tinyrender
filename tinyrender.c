@@ -6,9 +6,13 @@ static inline uint8_t clamp_u8(float v) {
     return (uint8_t)v;
 }
 
-int tinyrender_start(TinyRenderOption opt, TinyRenderWriter *w, uint8_t *y, uint8_t *u, uint8_t *v) {
+int tinyrender_start(TinyRenderOption opt, TinyRenderWriter *w, TinyRenderPixels *pixels, uint8_t *y, uint8_t *u, uint8_t *v) {
     if (!w) {
         fprintf(stderr, "Writer pointer is NULL\n");
+        return 1;
+    }
+    if (!pixels) {
+        fprintf(stderr, "Pixels pointer is NULL\n");
         return 1;
     }
     if (opt.width <= 0 || opt.height <= 0) {
@@ -34,6 +38,7 @@ int tinyrender_start(TinyRenderOption opt, TinyRenderWriter *w, uint8_t *y, uint
     w->y_plane = y;
     w->u_plane = u;
     w->v_plane = v;
+    w->pixels = pixels;
 
     int wrote = fprintf(w->f, "YUV4MPEG2 W%d H%d F%d:1 Ip A1:1 C444\n", w->opt.width, w->opt.height, w->opt.fps);
     if (wrote < 0) {
@@ -48,12 +53,12 @@ int tinyrender_start(TinyRenderOption opt, TinyRenderWriter *w, uint8_t *y, uint
     return 0;
 }
 
-int tinyrender_frame(TinyRenderWriter *w, const TinyRenderPixels *pixels) {
+int tinyrender_frame(TinyRenderWriter *w) {
     if (!w || !w->f) {
         fprintf(stderr, "writer/file is NULL\n");
         return 1;
     }
-    if (!pixels) {
+    if (!w->pixels) {
         fprintf(stderr, "pixels buffer is NULL\n");
         return 1;
     }
@@ -64,9 +69,9 @@ int tinyrender_frame(TinyRenderWriter *w, const TinyRenderPixels *pixels) {
 
     const size_t N = (size_t)w->opt.width * (size_t)w->opt.height;
     for (size_t i = 0; i < N; ++i) {
-        uint8_t r = pixels[i].r;
-        uint8_t g = pixels[i].g;
-        uint8_t b = pixels[i].b;
+        uint8_t r = w->pixels[i].r;
+        uint8_t g = w->pixels[i].g;
+        uint8_t b = w->pixels[i].b;
 
         float Yf =  0.299f * r + 0.587f * g + 0.114f * b;
         float Uf = -0.169f * r - 0.331f * g + 0.500f * b + 128.0f;
@@ -105,11 +110,11 @@ void tinyrender_end(TinyRenderWriter *w) {
     w->f = NULL;
 }
 
-void tinyrender_clear_background(TinyRenderPixels *pixels, TinyRenderWriter w, TinyRenderColor color) {
-    if (!pixels) return;
-    for (size_t i = 0; i < (size_t)w.opt.width * (size_t)w.opt.height; i++) {
-        pixels[i].r = color.r;
-        pixels[i].g = color.g;
-        pixels[i].b = color.b;
+void tinyrender_clear_background(TinyRenderWriter *w, const TinyRenderColor color) {
+    if (!w->pixels) return;
+    for (size_t i = 0; i < (size_t)w->opt.width * (size_t)w->opt.height; i++) {
+        w->pixels[i].r = color.r;
+        w->pixels[i].g = color.g;
+        w->pixels[i].b = color.b;
     }
 }
