@@ -104,3 +104,12 @@ void tinyrender_end(TinyRenderWriter *w) {
     }
     w->f = NULL;
 }
+
+void tinyrender_clear_background(TinyRenderPixels *pixels, TinyRenderWriter w, TinyRenderColor color) {
+    if (!pixels) return;
+    for (size_t i = 0; i < (size_t)w.opt.width * (size_t)w.opt.height; i++) {
+        pixels[i].r = color.r;
+        pixels[i].g = color.g;
+        pixels[i].b = color.b;
+    }
+}
