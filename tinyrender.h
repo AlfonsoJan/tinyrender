@@ -3,6 +3,16 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdarg.h>
+
+typedef enum {
+    TINYRENDER_LOG_INFO = 0,
+    TINYRENDER_LOG_WARNING,
+    TINYRENDER_LOG_ERROR,
+    TINYRENDER_LOG_NONE
+} TINYRENDER_LOG_LEVEL;
+
+void tinyrender_log(TINYRENDER_LOG_LEVEL level, const char *fmt, ...);
 
 typedef struct {
     uint8_t r, g, b;

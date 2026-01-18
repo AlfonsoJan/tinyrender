@@ -6,31 +6,48 @@ static inline uint8_t clamp_u8(float v) {
     return (uint8_t)v;
 }
 
+void tinyrender_log(TINYRENDER_LOG_LEVEL level, const char *fmt, ...) {
+    if (level < TINYRENDER_LOG_INFO || level >= TINYRENDER_LOG_NONE) return;
+    FILE *out = (level == TINYRENDER_LOG_INFO) ? stdout : stderr;
+    switch (level) {
+    case TINYRENDER_LOG_INFO:    fprintf(out, "[INFO] "); break;
+    case TINYRENDER_LOG_WARNING: fprintf(out, "[WARNING] "); break;
+    case TINYRENDER_LOG_ERROR:   fprintf(out, "[ERROR] "); break;
+    default: return;
+    }
+
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(out, fmt, args);
+    va_end(args);
+    fflush(out);
+}
+
 int tinyrender_start(TinyRenderOption opt, TinyRenderWriter *w, TinyRenderPixels *pixels, uint8_t *y, uint8_t *u, uint8_t *v) {
     if (!w) {
-        fprintf(stderr, "Writer pointer is NULL\n");
+        tinyrender_log(TINYRENDER_LOG_ERROR, "Writer pointer is NULL\n");
         return 1;
     }
     if (!pixels) {
-        fprintf(stderr, "Pixels pointer is NULL\n");
+        tinyrender_log(TINYRENDER_LOG_ERROR, "Pixels pointer is NULL\n");
         return 1;
     }
     if (opt.width <= 0 || opt.height <= 0) {
-        fprintf(stderr, "Invalid options (w=%d h=%d)\n", opt.width, opt.height);
+        tinyrender_log(TINYRENDER_LOG_ERROR, "Invalid options (w=%d h=%d)\n", opt.width, opt.height);
         return 1;
     }
     if (opt.fps <= 0) {
-        fprintf(stderr, "FPS cannot be 0 or lower\n");
+        tinyrender_log(TINYRENDER_LOG_ERROR, "FPS cannot be 0 or lower\n");
         return 1;
     }
     if (opt.filename == NULL) {
-        fprintf(stderr, "Filename pointer is NULL\n");
+        tinyrender_log(TINYRENDER_LOG_ERROR, "Filename pointer is NULL\n");
         return 1;
     }
 
     w->f = fopen(opt.filename, "wb");
     if (!w->f) {
-        fprintf(stderr, "Failed to open '%s'\n", opt.filename);
+        tinyrender_log(TINYRENDER_LOG_ERROR, "Failed to open '%s'\n", opt.filename);
         return 1;
     }
 
@@ -42,28 +59,28 @@ int tinyrender_start(TinyRenderOption opt, TinyRenderWriter *w, TinyRenderPixels
 
     int wrote = fprintf(w->f, "YUV4MPEG2 W%d H%d F%d:1 Ip A1:1 C444\n", w->opt.width, w->opt.height, w->opt.fps);
     if (wrote < 0) {
-        fprintf(stderr, "Failed to write file header to '%s'\n", opt.filename);
+        tinyrender_log(TINYRENDER_LOG_ERROR, "Failed to write file header to '%s'\n", opt.filename);
         fclose(w->f);
         w->f = NULL;
         return 1;
     }
 
     size_t planeN = (size_t)w->opt.width * (size_t)w->opt.height;
-    fprintf(stdout, "Opened '%s' (%dx%d @ %dfps, plane bytes=%llu)\n", opt.filename, opt.width, opt.height, opt.fps, planeN);
+    tinyrender_log(TINYRENDER_LOG_INFO, "Opened '%s' (%dx%d @ %dfps, plane bytes=%llu)\n", opt.filename, opt.width, opt.height, opt.fps, planeN);
     return 0;
 }
 
 int tinyrender_frame(TinyRenderWriter *w) {
     if (!w || !w->f) {
-        fprintf(stderr, "writer/file is NULL\n");
+        tinyrender_log(TINYRENDER_LOG_ERROR, "writer/file is NULL\n");
         return 1;
     }
     if (!w->pixels) {
-        fprintf(stderr, "pixels buffer is NULL\n");
+        tinyrender_log(TINYRENDER_LOG_ERROR, "pixels buffer is NULL\n");
         return 1;
     }
     if (fprintf(w->f, "FRAME\n") < 0) {
-        fprintf(stderr, "failed to write frame header\n");
+        tinyrender_log(TINYRENDER_LOG_ERROR, "failed to write frame header\n");
         return 1;
     }
 
@@ -87,25 +104,25 @@ int tinyrender_frame(TinyRenderWriter *w) {
     size_t wroteV = fwrite(w->v_plane, 1, N, w->f);
 
     if (wroteY != N || wroteU != N || wroteV != N) {
-        fprintf(stderr, "Short write (Y=%llu/%llu, U=%llu/%llu, V=%llu/%llu)\n",
+        tinyrender_log(TINYRENDER_LOG_ERROR, "Short write (Y=%llu/%llu, U=%llu/%llu, V=%llu/%llu)\n",
             (unsigned long long)wroteY, (unsigned long long)N,
             (unsigned long long)wroteU, (unsigned long long)N,
             (unsigned long long)wroteV, (unsigned long long)N);
         return 1;
     }
-    fprintf(stdout, "Wrote %llu bytes (YUV444)\n", (unsigned long long)3 * N);
+    tinyrender_log(TINYRENDER_LOG_INFO, "Wrote %llu bytes (YUV444)\n", (unsigned long long)3 * N);
     return 0;
 }
 
 void tinyrender_end(TinyRenderWriter *w) {
     if (!w) {
-        fprintf(stderr, "file already closed or was never opened\n");
+        tinyrender_log(TINYRENDER_LOG_ERROR, "File already closed or was never opened\n");
         return;
     }
     if (fclose(w->f) != 0) {
-        fprintf(stderr, "fclose failed\n");
+        tinyrender_log(TINYRENDER_LOG_ERROR, "fclose failed\n");
     } else {
-        fprintf(stdout, "closed '%s'\n", w->opt.filename ? w->opt.filename : "(unknown)");
+        tinyrender_log(TINYRENDER_LOG_INFO, "Closed '%s'\n", w->opt.filename ? w->opt.filename : "(unknown)");
     }
     w->f = NULL;
 }
