@@ -11,6 +11,8 @@ static TinyRenderPixels pixels[N];
 static uint8_t Y[N], U[N], V[N];
 
 int main() {
+    // If you want to disable all logging or create your own handler
+    // tinyrender_set_log_handler(NULL);
     TinyRenderOption opt = {
         .width = WIDTH,
         .height = HEIGHT,

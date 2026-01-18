@@ -6,12 +6,20 @@
 #include <stdarg.h>
 
 typedef enum {
-    TINYRENDER_LOG_INFO = 0,
+    TINYRENDER_LOG_DEBUG = 0,
+    TINYRENDER_LOG_INFO,
     TINYRENDER_LOG_WARNING,
     TINYRENDER_LOG_ERROR,
     TINYRENDER_LOG_NONE
 } TINYRENDER_LOG_LEVEL;
 
+typedef void (*tinyrender_log_handler_fn)(
+    TINYRENDER_LOG_LEVEL level,
+    const char *fmt,
+    va_list args
+);
+
+void tinyrender_set_log_handler(tinyrender_log_handler_fn handler);
 void tinyrender_log(TINYRENDER_LOG_LEVEL level, const char *fmt, ...);
 
 typedef struct {

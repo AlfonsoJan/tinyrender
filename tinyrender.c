@@ -1,26 +1,45 @@
 #include "tinyrender.h"
 
+static void tinyrender_default_log_handler(
+    TINYRENDER_LOG_LEVEL level,
+    const char *fmt,
+    va_list args
+) {
+    if (level < TINYRENDER_LOG_INFO || level >= TINYRENDER_LOG_NONE) return;
+
+    FILE *out = (level == TINYRENDER_LOG_INFO) ? stdout : stderr;
+
+    switch (level) {
+        case TINYRENDER_LOG_DEBUG:   fprintf(out, "[DEBUG] ");    break;
+        case TINYRENDER_LOG_INFO:    fprintf(out, "[INFO] ");    break;
+        case TINYRENDER_LOG_WARNING: fprintf(out, "[WARNING] "); break;
+        case TINYRENDER_LOG_ERROR:   fprintf(out, "[ERROR] ");   break;
+        default: return;
+    }
+
+    vfprintf(out, fmt, args);
+    fflush(out);
+}
+
+static tinyrender_log_handler_fn g_log_handler = tinyrender_default_log_handler;
+
+void tinyrender_set_log_handler(tinyrender_log_handler_fn handler) {
+    g_log_handler = handler;
+}
+
+void tinyrender_log(TINYRENDER_LOG_LEVEL level, const char *fmt, ...) {
+    if (!g_log_handler) return;
+
+    va_list args;
+    va_start(args, fmt);
+    g_log_handler(level, fmt, args);
+    va_end(args);
+}
+
 static inline uint8_t clamp_u8(float v) {
     if (v < 0.0f)   return 0;
     if (v > 255.0f) return 255;
     return (uint8_t)v;
-}
-
-void tinyrender_log(TINYRENDER_LOG_LEVEL level, const char *fmt, ...) {
-    if (level < TINYRENDER_LOG_INFO || level >= TINYRENDER_LOG_NONE) return;
-    FILE *out = (level == TINYRENDER_LOG_INFO) ? stdout : stderr;
-    switch (level) {
-    case TINYRENDER_LOG_INFO:    fprintf(out, "[INFO] "); break;
-    case TINYRENDER_LOG_WARNING: fprintf(out, "[WARNING] "); break;
-    case TINYRENDER_LOG_ERROR:   fprintf(out, "[ERROR] "); break;
-    default: return;
-    }
-
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(out, fmt, args);
-    va_end(args);
-    fflush(out);
 }
 
 int tinyrender_start(TinyRenderOption opt, TinyRenderWriter *w, TinyRenderPixels *pixels, uint8_t *y, uint8_t *u, uint8_t *v) {
@@ -110,7 +129,7 @@ int tinyrender_frame(TinyRenderWriter *w) {
             (unsigned long long)wroteV, (unsigned long long)N);
         return 1;
     }
-    tinyrender_log(TINYRENDER_LOG_INFO, "Wrote %llu bytes (YUV444)\n", (unsigned long long)3 * N);
+    tinyrender_log(TINYRENDER_LOG_DEBUG, "Wrote %llu bytes (YUV444)\n", (unsigned long long)3 * N);
     return 0;
 }
 
