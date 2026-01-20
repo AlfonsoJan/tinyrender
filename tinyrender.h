@@ -22,6 +22,25 @@ typedef void (*tinyrender_log_handler_fn)(
 void tinyrender_set_log_handler(tinyrender_log_handler_fn handler);
 void tinyrender_log(TINYRENDER_LOG_LEVEL level, const char *fmt, ...);
 
+typedef enum {
+    TINYRENDER_OK = 0,
+
+    TINYRENDER_ERR_NULL_CTX,
+    TINYRENDER_ERR_NULL_PIXELS,
+    TINYRENDER_ERR_NULL_PLANES,
+    TINYRENDER_ERR_INVALID_OPTIONS,
+    TINYRENDER_ERR_INVALID_FPS,
+    TINYRENDER_ERR_NULL_FILENAME,
+
+    TINYRENDER_ERR_FILE_OPEN,
+    TINYRENDER_ERR_FILE_WRITE,
+    TINYRENDER_ERR_SHORT_WRITE,
+
+    TINYRENDER_ERR_INTERNAL
+} TinyRenderResult;
+
+const char *tinyrender_strerror(TinyRenderResult r);
+
 typedef struct {
     uint8_t r, g, b;
 } TinyRenderPixels;
@@ -42,12 +61,13 @@ typedef struct {
     uint8_t *y_plane;
     uint8_t *u_plane;
     uint8_t *v_plane;
+    uint8_t *z_buffer;
 } TinyRenderCtx;
 
-int tinyrender_init_ctx(TinyRenderCtx *ctx, TinyRenderPixels *pixels, uint8_t *y, uint8_t *u, uint8_t *v);
+TinyRenderResult tinyrender_init_ctx(TinyRenderCtx *ctx, TinyRenderPixels *pixels, uint8_t *y, uint8_t *u, uint8_t *v, uint8_t *z);
 
-int tinyrender_start(TinyRenderOption opt, TinyRenderCtx *ctx);
-int tinyrender_frame(TinyRenderCtx *ctx);
+TinyRenderResult tinyrender_start(TinyRenderOption opt, TinyRenderCtx *ctx);
+TinyRenderResult tinyrender_frame(TinyRenderCtx *ctx);
 void tinyrender_end(TinyRenderCtx *ctx);
 
 void tinyrender_clear_background(TinyRenderCtx *ctx, const TinyRenderColor color);

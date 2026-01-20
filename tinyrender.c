@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "tinyrender.h"
 
 static void tinyrender_default_log_handler(
@@ -5,7 +7,7 @@ static void tinyrender_default_log_handler(
     const char *fmt,
     va_list args
 ) {
-    if (level < TINYRENDER_LOG_INFO || level >= TINYRENDER_LOG_NONE) return;
+    if (level != TINYRENDER_LOG_INFO) return;
 
     FILE *out = (level == TINYRENDER_LOG_INFO) ? stdout : stderr;
 
@@ -42,50 +44,73 @@ static inline uint8_t clamp_u8(float v) {
     return (uint8_t)v;
 }
 
-int tinyrender_init_ctx(TinyRenderCtx *ctx, TinyRenderPixels *pixels, uint8_t *y, uint8_t *u, uint8_t *v) {
+#define FAIL(code) do { result = (code); goto fail; } while (0)
+
+const char *tinyrender_strerror(TinyRenderResult r) {
+    switch (r) {
+        case TINYRENDER_OK: return "ok";
+        case TINYRENDER_ERR_NULL_CTX: return "null context";
+        case TINYRENDER_ERR_NULL_PIXELS: return "null pixels";
+        case TINYRENDER_ERR_NULL_PLANES: return "null YUV planes";
+        case TINYRENDER_ERR_INVALID_OPTIONS: return "invalid options";
+        case TINYRENDER_ERR_INVALID_FPS: return "invalid fps";
+        case TINYRENDER_ERR_NULL_FILENAME: return "null filename";
+        case TINYRENDER_ERR_FILE_OPEN: return "file open failed";
+        case TINYRENDER_ERR_FILE_WRITE: return "file write failed";
+        case TINYRENDER_ERR_SHORT_WRITE: return "short write";
+        default: return "unknown error";
+    }
+}
+
+TinyRenderResult tinyrender_init_ctx(TinyRenderCtx *ctx, TinyRenderPixels *pixels, uint8_t *y, uint8_t *u, uint8_t *v, uint8_t *z) {
+    TinyRenderResult result = TINYRENDER_OK;
+
     if (!ctx) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "Writer pointer is NULL\n");
-        return 1;
+        FAIL(TINYRENDER_ERR_NULL_CTX);
     }
     if (!pixels) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "Pixels pointer is NULL\n");
-        return 1;
+        FAIL(TINYRENDER_ERR_NULL_PIXELS);
     }
     if (!y || !u || !v) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "YUV plane pointer(s) is NULL\n");
-        return 1;
+        FAIL(TINYRENDER_ERR_NULL_PLANES);
     }
 
     ctx->y_plane = y;
     ctx->u_plane = u;
     ctx->v_plane = v;
     ctx->pixels = pixels;
+    ctx->z_buffer = z;
 
-    return 0;
+fail:
+    return result;
 }
 
-int tinyrender_start(TinyRenderOption opt, TinyRenderCtx *ctx) {
+TinyRenderResult tinyrender_start(TinyRenderOption opt, TinyRenderCtx *ctx) {
+    TinyRenderResult result = TINYRENDER_OK;
     if (!ctx) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "Writer pointer is NULL\n");
-        return 1;
+        FAIL(TINYRENDER_ERR_NULL_CTX);
     }
     if (opt.width <= 0 || opt.height <= 0) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "Invalid options (w=%d h=%d)\n", opt.width, opt.height);
-        return 1;
+        FAIL(TINYRENDER_ERR_INVALID_OPTIONS);
     }
     if (opt.fps <= 0) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "FPS cannot be 0 or lower\n");
-        return 1;
+        FAIL(TINYRENDER_ERR_INVALID_FPS);
     }
-    if (opt.filename == NULL) {
+    if (!opt.filename) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "Filename pointer is NULL\n");
-        return 1;
+        FAIL(TINYRENDER_ERR_NULL_FILENAME);
     }
 
     ctx->f = fopen(opt.filename, "wb");
     if (!ctx->f) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "Failed to open '%s'\n", opt.filename);
-        return 1;
+        FAIL(TINYRENDER_ERR_FILE_OPEN);
     }
 
     ctx->opt = opt;
@@ -93,28 +118,33 @@ int tinyrender_start(TinyRenderOption opt, TinyRenderCtx *ctx) {
     int wrote = fprintf(ctx->f, "YUV4MPEG2 W%d H%d F%d:1 Ip A1:1 C444\n", ctx->opt.width, ctx->opt.height, ctx->opt.fps);
     if (wrote < 0) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "Failed to write file header to '%s'\n", opt.filename);
-        fclose(ctx->f);
-        ctx->f = NULL;
-        return 1;
+        FAIL(TINYRENDER_ERR_FILE_OPEN);
     }
 
     size_t planeN = (size_t)ctx->opt.width * (size_t)ctx->opt.height;
     tinyrender_log(TINYRENDER_LOG_INFO, "Opened '%s' (%dx%d @ %dfps, plane bytes=%llu)\n", opt.filename, opt.width, opt.height, opt.fps, planeN);
-    return 0;
+
+fail:
+    if (result != TINYRENDER_OK) {
+        if (ctx->f) fclose(ctx->f);
+        ctx->f = NULL;
+    }
+    return result;
 }
 
-int tinyrender_frame(TinyRenderCtx *ctx) {
+TinyRenderResult tinyrender_frame(TinyRenderCtx *ctx) {
+    TinyRenderResult result = TINYRENDER_OK;
     if (!ctx || !ctx->f) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "writer/file is NULL\n");
-        return 1;
+        FAIL(TINYRENDER_ERR_NULL_CTX);
     }
     if (!ctx->pixels) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "pixels buffer is NULL\n");
-        return 1;
+        FAIL(TINYRENDER_ERR_NULL_PIXELS);
     }
     if (fprintf(ctx->f, "FRAME\n") < 0) {
         tinyrender_log(TINYRENDER_LOG_ERROR, "failed to write frame header\n");
-        return 1;
+        FAIL(TINYRENDER_ERR_FILE_WRITE);
     }
 
     const size_t N = (size_t)ctx->opt.width * (size_t)ctx->opt.height;
@@ -137,14 +167,19 @@ int tinyrender_frame(TinyRenderCtx *ctx) {
     size_t wroteV = fwrite(ctx->v_plane, 1, N, ctx->f);
 
     if (wroteY != N || wroteU != N || wroteV != N) {
-        tinyrender_log(TINYRENDER_LOG_ERROR, "Short write (Y=%llu/%llu, U=%llu/%llu, V=%llu/%llu)\n",
-            (unsigned long long)wroteY, (unsigned long long)N,
-            (unsigned long long)wroteU, (unsigned long long)N,
-            (unsigned long long)wroteV, (unsigned long long)N);
-        return 1;
+        tinyrender_log(TINYRENDER_LOG_ERROR, "Short write\n");
+        FAIL(TINYRENDER_ERR_SHORT_WRITE);
     }
     tinyrender_log(TINYRENDER_LOG_DEBUG, "Wrote %llu bytes (YUV444)\n", (unsigned long long)3 * N);
-    return 0;
+
+    memset(ctx->pixels, 0, N);
+
+fail:
+    if (result != TINYRENDER_OK) {
+        if (ctx->f) fclose(ctx->f);
+        ctx->f = NULL;
+    }
+    return result;
 }
 
 void tinyrender_end(TinyRenderCtx *ctx) {

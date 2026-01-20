@@ -8,13 +8,19 @@
 #define TOTAL_FRAMES FPS * DURATION_SECONDS
 
 static TinyRenderPixels pixels[N];
-static uint8_t Y[N], U[N], V[N];
+static uint8_t Y[N], U[N], V[N], Z[N];
 
 int main() {
     // If you want to disable all logging or create your own handler
     // tinyrender_set_log_handler(NULL);
+    // if no logger then you can check for errors
+    TinyRenderResult result;
     TinyRenderCtx ctx = {0};
-    tinyrender_init_ctx(&ctx, pixels, Y, U, V);
+    result = tinyrender_init_ctx(&ctx, pixels, Y, U, V, Z);
+    if (result != TINYRENDER_OK) {
+        printf("%s\n", tinyrender_strerror(result));
+        return 1;
+    }
 
     TinyRenderOption opt = {
         .width = WIDTH,
@@ -23,8 +29,10 @@ int main() {
         .filename = "output.y4m"
     };
 
-    if(tinyrender_start(opt, &ctx) != 0) {
-        return -1;
+    result = tinyrender_start(opt, &ctx);
+    if (result != TINYRENDER_OK) {
+        printf("%s\n", tinyrender_strerror(result));
+        return 1;
     }
 
     for (int frame = 0; frame < TOTAL_FRAMES; frame++) {
@@ -38,7 +46,12 @@ int main() {
             tinyrender_clear_background(&ctx, (TinyRenderColor){0, 0, 255});
         }
 
-        tinyrender_frame(&ctx);
+
+        result = tinyrender_frame(&ctx);
+        if (result != TINYRENDER_OK) {
+            printf("%s\n", tinyrender_strerror(result));
+            return 1;
+        }
     }
 
     tinyrender_end(&ctx);
