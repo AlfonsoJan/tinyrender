@@ -42,12 +42,14 @@ typedef struct {
     uint8_t *y_plane;
     uint8_t *u_plane;
     uint8_t *v_plane;
-} TinyRenderWriter;
+} TinyRenderCtx;
 
-int tinyrender_start(TinyRenderOption opt, TinyRenderWriter *w, TinyRenderPixels *pixels, uint8_t *y, uint8_t *u, uint8_t *v);
-int tinyrender_frame(TinyRenderWriter *w);
-void tinyrender_end(TinyRenderWriter *w);
+int tinyrender_init_ctx(TinyRenderCtx *ctx, TinyRenderPixels *pixels, uint8_t *y, uint8_t *u, uint8_t *v);
 
-void tinyrender_clear_background(TinyRenderWriter *writer, const TinyRenderColor color);
+int tinyrender_start(TinyRenderOption opt, TinyRenderCtx *ctx);
+int tinyrender_frame(TinyRenderCtx *ctx);
+void tinyrender_end(TinyRenderCtx *ctx);
+
+void tinyrender_clear_background(TinyRenderCtx *ctx, const TinyRenderColor color);
 
 #endif // TINYRENDER_H_

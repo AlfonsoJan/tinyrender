@@ -13,31 +13,34 @@ static uint8_t Y[N], U[N], V[N];
 int main() {
     // If you want to disable all logging or create your own handler
     // tinyrender_set_log_handler(NULL);
+    TinyRenderCtx ctx = {0};
+    tinyrender_init_ctx(&ctx, pixels, Y, U, V);
+
     TinyRenderOption opt = {
         .width = WIDTH,
         .height = HEIGHT,
         .fps = FPS,
         .filename = "output.y4m"
     };
-    TinyRenderWriter w = {0};
-    if(tinyrender_start(opt, &w, pixels, Y, U, V) != 0) {
+
+    if(tinyrender_start(opt, &ctx) != 0) {
         return -1;
     }
 
     for (int frame = 0; frame < TOTAL_FRAMES; frame++) {
-        float t = (float)(frame) / (float)w.opt.fps;
+        float t = (float)(frame) / (float)ctx.opt.fps;
 
         if (t <= 1.0f) {
-            tinyrender_clear_background(&w, (TinyRenderColor){255, 0, 0});
+            tinyrender_clear_background(&ctx, (TinyRenderColor){255, 0, 0});
         } else if (t <= 2.0f) {
-            tinyrender_clear_background(&w, (TinyRenderColor){0, 255, 0});
+            tinyrender_clear_background(&ctx, (TinyRenderColor){0, 255, 0});
         } else {
-            tinyrender_clear_background(&w, (TinyRenderColor){0, 0, 255});
+            tinyrender_clear_background(&ctx, (TinyRenderColor){0, 0, 255});
         }
 
-        tinyrender_frame(&w);
+        tinyrender_frame(&ctx);
     }
 
-    tinyrender_end(&w);
+    tinyrender_end(&ctx);
     return 0;
 }
